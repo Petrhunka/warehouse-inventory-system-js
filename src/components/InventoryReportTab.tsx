@@ -5,11 +5,13 @@ import dynamic from 'next/dynamic';
 import { Location } from '@/types/warehouse';
 import { groupBy, sum, mean, std, minVal, maxVal, downloadCsv, locationsToCsv } from '@/lib/utils';
 
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
+const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 interface Props {
   data: Location[];
 }
+
+const chartGrid = { left: 48, right: 24, bottom: 80, top: 40, containLabel: true };
 
 export default function InventoryReportTab({ data }: Props) {
   const [selectedProduct, setSelectedProduct] = useState<string>('');
@@ -26,9 +28,7 @@ export default function InventoryReportTab({ data }: Props) {
 
   const currentProduct = selectedProduct || productTypes[0] || '';
 
-  // overview metrics
   const totalInventory = data.reduce((s, l) => s + l.quantity, 0);
-  const totalProductTypes = productTypes.length;
   const productTotals = Object.entries(groupBy(data, (l) => l.product_type)).map(
     ([, items]) => items.reduce((s, l) => s + l.quantity, 0),
   );
@@ -41,7 +41,6 @@ export default function InventoryReportTab({ data }: Props) {
       ? (data.filter((l) => l.quantity > 0).length / data.length) * 100
       : 0;
 
-  // product inventory bar chart data
   const productInventory = Object.entries(groupBy(data, (l) => l.product_type))
     .map(([pt, items]) => ({
       product_type: pt,
@@ -49,7 +48,6 @@ export default function InventoryReportTab({ data }: Props) {
     }))
     .sort((a, b) => b.quantity - a.quantity);
 
-  // location type analysis
   const locationInventory = Object.entries(groupBy(data, (l) => l.location_type)).map(
     ([lt, items]) => ({
       location_type: lt,
@@ -66,7 +64,6 @@ export default function InventoryReportTab({ data }: Props) {
     }),
   );
 
-  // selected product analysis
   const productData = data.filter((l) => l.product_type === currentProduct);
   const prodTotal = productData.reduce((s, l) => s + l.quantity, 0);
   const prodFilled = productData.filter((l) => l.quantity > 0).length;
@@ -97,7 +94,6 @@ export default function InventoryReportTab({ data }: Props) {
     }),
   );
 
-  // stock level breakdown for pie chart
   const stockLevels = useMemo(() => {
     const empty = productData.filter((l) => l.quantity === 0).length;
     const low = productData.filter((l) => l.quantity > 0 && l.quantity <= 5).length;
@@ -110,7 +106,6 @@ export default function InventoryReportTab({ data }: Props) {
     .filter((l) => l.quantity > 0 && l.quantity <= 5)
     .sort((a, b) => a.quantity - b.quantity);
 
-  // issue analysis
   const filledData = data.filter((l) => l.quantity > 0);
   const lowStockAll = filledData.filter((l) => l.quantity <= lowThreshold);
   const highStockAll = data.filter((l) => l.quantity >= highThreshold);
@@ -123,7 +118,6 @@ export default function InventoryReportTab({ data }: Props) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // balance analysis
   const balanceData = Object.entries(groupBy(data, (l) => l.product_type))
     .map(([pt, items]) => {
       const avgQ = mean(items, 'quantity');
@@ -141,6 +135,129 @@ export default function InventoryReportTab({ data }: Props) {
     })
     .sort((a, b) => b.cv - a.cv);
 
+  const productBarOption = useMemo(
+    () => ({
+      grid: chartGrid,
+      xAxis: {
+        type: 'category',
+        data: productInventory.map((p) => p.product_type),
+        axisLabel: { rotate: 45, fontSize: 11 },
+      },
+      yAxis: { type: 'value', name: 'Total Quantity' },
+      tooltip: { trigger: 'axis' },
+      series: [
+        {
+          type: 'bar',
+          data: productInventory.map((p) => p.quantity),
+          itemStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: '#93c5fd' },
+                { offset: 1, color: '#1d4ed8' },
+              ],
+            },
+          },
+          barWidth: '60%',
+        },
+      ],
+    }),
+    [productInventory],
+  );
+
+  const pieOption = useMemo(
+    () => ({
+      tooltip: { trigger: 'item' },
+      legend: { bottom: 8 },
+      series: [
+        {
+          type: 'pie',
+          radius: ['40%', '65%'],
+          center: ['50%', '45%'],
+          data: [
+            { value: stockLevels.empty, name: 'Empty', itemStyle: { color: '#cbd5e1' } },
+            { value: stockLevels.low, name: 'Low', itemStyle: { color: '#ef4444' } },
+            { value: stockLevels.normal, name: 'Normal', itemStyle: { color: '#22c55e' } },
+            { value: stockLevels.high, name: 'High', itemStyle: { color: '#eab308' } },
+          ],
+        },
+      ],
+    }),
+    [stockLevels],
+  );
+
+  const lowBarOption = useMemo(
+    () => ({
+      grid: chartGrid,
+      xAxis: {
+        type: 'category',
+        data: lowByProduct.map((p) => p.product_type),
+        axisLabel: { rotate: 45, fontSize: 10 },
+      },
+      yAxis: { type: 'value', name: 'Low Stock Locations' },
+      tooltip: { trigger: 'axis' },
+      series: [
+        {
+          type: 'bar',
+          data: lowByProduct.map((p) => p.count),
+          itemStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: '#fecaca' },
+                { offset: 1, color: '#b91c1c' },
+              ],
+            },
+          },
+          barWidth: '60%',
+        },
+      ],
+    }),
+    [lowByProduct],
+  );
+
+  const highBarOption = useMemo(
+    () => ({
+      grid: chartGrid,
+      xAxis: {
+        type: 'category',
+        data: highByProduct.map((p) => p.product_type),
+        axisLabel: { rotate: 45, fontSize: 10 },
+      },
+      yAxis: { type: 'value', name: 'High Stock Locations' },
+      tooltip: { trigger: 'axis' },
+      series: [
+        {
+          type: 'bar',
+          data: highByProduct.map((p) => p.count),
+          itemStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: '#86efac' },
+                { offset: 1, color: '#15803d' },
+              ],
+            },
+          },
+          barWidth: '60%',
+        },
+      ],
+    }),
+    [highByProduct],
+  );
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-gray-600">
@@ -148,66 +265,49 @@ export default function InventoryReportTab({ data }: Props) {
         issues, optimize distribution, and support decision-making.
       </p>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-4">
         <MetricCard label="Total Inventory" value={totalInventory.toLocaleString()} />
-        <MetricCard label="Product Categories" value={String(totalProductTypes)} />
+        <MetricCard label="Product Categories" value={String(productTypes.length)} />
         <MetricCard label="Avg Per Category" value={avgPerCategory.toFixed(1)} />
         <MetricCard label="Space Utilization" value={`${filledPct.toFixed(1)}%`} />
       </div>
 
-      {/* Product Type Bar Chart */}
-      <div>
-        <h3 className="text-base font-semibold mb-2">Inventory by Product Type</h3>
-        <Plot
-          data={[
-            {
-              type: 'bar',
-              x: productInventory.map((p) => p.product_type),
-              y: productInventory.map((p) => p.quantity),
-              marker: {
-                color: productInventory.map((p) => p.quantity),
-                colorscale: 'Blues',
-              },
-            },
-          ]}
-          layout={{
-            title: 'Total Stock by Product Type',
-            xaxis: { title: 'Product Type', tickangle: -45 },
-            yaxis: { title: 'Total Quantity' },
-            margin: { b: 120, t: 40, l: 50, r: 20 },
-            height: 400,
-            autosize: true,
-          }}
-          config={{ responsive: true }}
-          style={{ width: '100%' }}
-        />
+      <div className="rounded-xl border border-gray-200 bg-white shadow-card p-4">
+        <h3 className="text-base font-semibold mb-3">Inventory by Product Type</h3>
+        <ReactECharts option={productBarOption} style={{ height: 400, width: '100%' }} />
       </div>
 
-      {/* Location Type Analysis */}
-      <div>
-        <h3 className="text-base font-semibold mb-2">Inventory by Location Type</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs border">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-card p-4">
+        <h3 className="text-base font-semibold mb-3">Inventory by Location Type</h3>
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-gray-50">
-                <th className="border px-2 py-1 text-left">Location Type</th>
-                <th className="border px-2 py-1 text-right">Total Items</th>
-                <th className="border px-2 py-1 text-right">Locations</th>
-                <th className="border px-2 py-1 text-right">Avg Items/Loc</th>
-                <th className="border px-2 py-1 text-right">Utilization %</th>
+              <tr className="bg-surface-50">
+                <th className="px-4 py-2.5 text-left font-medium text-gray-700">
+                  Location Type
+                </th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">
+                  Total Items
+                </th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Locations</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">
+                  Avg Items/Loc
+                </th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">
+                  Utilization %
+                </th>
               </tr>
             </thead>
             <tbody>
-              {locationInventory
+              {[...locationInventory]
                 .sort((a, b) => b.total_items - a.total_items)
                 .map((r) => (
-                  <tr key={r.location_type}>
-                    <td className="border px-2 py-1">{r.location_type}</td>
-                    <td className="border px-2 py-1 text-right">{r.total_items}</td>
-                    <td className="border px-2 py-1 text-right">{r.locations}</td>
-                    <td className="border px-2 py-1 text-right">{r.avg_per_location}</td>
-                    <td className="border px-2 py-1 text-right">{r.utilization}%</td>
+                  <tr key={r.location_type} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-2.5">{r.location_type}</td>
+                    <td className="px-4 py-2.5 text-right">{r.total_items}</td>
+                    <td className="px-4 py-2.5 text-right">{r.locations}</td>
+                    <td className="px-4 py-2.5 text-right">{r.avg_per_location}</td>
+                    <td className="px-4 py-2.5 text-right">{r.utilization}%</td>
                   </tr>
                 ))}
             </tbody>
@@ -215,13 +315,12 @@ export default function InventoryReportTab({ data }: Props) {
         </div>
       </div>
 
-      {/* Detailed Product Information */}
-      <div>
-        <h3 className="text-base font-semibold mb-2">Detailed Product Information</h3>
+      <div className="rounded-xl border border-gray-200 bg-white shadow-card p-4">
+        <h3 className="text-base font-semibold mb-3">Detailed Product Information</h3>
         <select
           value={currentProduct}
           onChange={(e) => setSelectedProduct(e.target.value)}
-          className="border border-gray-300 rounded px-2 py-1 text-sm mb-3"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none mb-4"
         >
           {productTypes.map((pt) => (
             <option key={pt} value={pt}>
@@ -231,7 +330,7 @@ export default function InventoryReportTab({ data }: Props) {
         </select>
 
         <h4 className="text-sm font-semibold mb-2">{currentProduct} - Inventory Details</h4>
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-4 gap-4 mb-6">
           <MetricCard label="Total Quantity" value={String(prodTotal)} />
           <MetricCard label="Total Locations" value={String(productData.length)} />
           <MetricCard label="Filled Locations" value={String(prodFilled)} />
@@ -241,31 +340,31 @@ export default function InventoryReportTab({ data }: Props) {
         <h4 className="text-sm font-semibold mb-2">
           {currentProduct} - Distribution by Zone
         </h4>
-        <div className="overflow-x-auto mb-4">
-          <table className="min-w-full text-xs border">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 mb-6">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-gray-50">
-                <th className="border px-2 py-1 text-left">Zone</th>
-                <th className="border px-2 py-1 text-right">Total Qty</th>
-                <th className="border px-2 py-1 text-right">Locations</th>
-                <th className="border px-2 py-1 text-right">Filled</th>
-                <th className="border px-2 py-1 text-right">Avg Qty</th>
-                <th className="border px-2 py-1 text-right">Max</th>
-                <th className="border px-2 py-1 text-right">Min</th>
+              <tr className="bg-surface-50">
+                <th className="px-4 py-2.5 text-left font-medium text-gray-700">Zone</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Total Qty</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Locations</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Filled</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Avg Qty</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Max</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Min</th>
               </tr>
             </thead>
             <tbody>
-              {productByZone
+              {[...productByZone]
                 .sort((a, b) => b.total_qty - a.total_qty)
                 .map((r) => (
-                  <tr key={r.zone}>
-                    <td className="border px-2 py-1 font-medium">{r.zone}</td>
-                    <td className="border px-2 py-1 text-right">{r.total_qty}</td>
-                    <td className="border px-2 py-1 text-right">{r.locations}</td>
-                    <td className="border px-2 py-1 text-right">{r.filled_locs}</td>
-                    <td className="border px-2 py-1 text-right">{r.avg_qty}</td>
-                    <td className="border px-2 py-1 text-right">{r.max_qty}</td>
-                    <td className="border px-2 py-1 text-right">{r.min_qty}</td>
+                  <tr key={r.zone} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-2.5 font-medium">{r.zone}</td>
+                    <td className="px-4 py-2.5 text-right">{r.total_qty}</td>
+                    <td className="px-4 py-2.5 text-right">{r.locations}</td>
+                    <td className="px-4 py-2.5 text-right">{r.filled_locs}</td>
+                    <td className="px-4 py-2.5 text-right">{r.avg_qty}</td>
+                    <td className="px-4 py-2.5 text-right">{r.max_qty}</td>
+                    <td className="px-4 py-2.5 text-right">{r.min_qty}</td>
                   </tr>
                 ))}
             </tbody>
@@ -275,80 +374,71 @@ export default function InventoryReportTab({ data }: Props) {
         <h4 className="text-sm font-semibold mb-2">
           {currentProduct} - Distribution by Location Type
         </h4>
-        <div className="overflow-x-auto mb-4">
-          <table className="min-w-full text-xs border">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 mb-6">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-gray-50">
-                <th className="border px-2 py-1 text-left">Location Type</th>
-                <th className="border px-2 py-1 text-right">Total Qty</th>
-                <th className="border px-2 py-1 text-right">Locations</th>
-                <th className="border px-2 py-1 text-right">Filled</th>
-                <th className="border px-2 py-1 text-right">Utilization %</th>
+              <tr className="bg-surface-50">
+                <th className="px-4 py-2.5 text-left font-medium text-gray-700">
+                  Location Type
+                </th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Total Qty</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Locations</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Filled</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Utilization %</th>
               </tr>
             </thead>
             <tbody>
-              {productByLocType
+              {[...productByLocType]
                 .sort((a, b) => b.total_qty - a.total_qty)
                 .map((r) => (
-                  <tr key={r.location_type}>
-                    <td className="border px-2 py-1">{r.location_type}</td>
-                    <td className="border px-2 py-1 text-right">{r.total_qty}</td>
-                    <td className="border px-2 py-1 text-right">{r.locations}</td>
-                    <td className="border px-2 py-1 text-right">{r.filled_locs}</td>
-                    <td className="border px-2 py-1 text-right">{r.utilization}%</td>
+                  <tr
+                    key={r.location_type}
+                    className="border-t border-gray-100 hover:bg-gray-50"
+                  >
+                    <td className="px-4 py-2.5">{r.location_type}</td>
+                    <td className="px-4 py-2.5 text-right">{r.total_qty}</td>
+                    <td className="px-4 py-2.5 text-right">{r.locations}</td>
+                    <td className="px-4 py-2.5 text-right">{r.filled_locs}</td>
+                    <td className="px-4 py-2.5 text-right">{r.utilization}%</td>
                   </tr>
                 ))}
             </tbody>
           </table>
         </div>
 
-        {/* Stock Level Pie Chart */}
         <h4 className="text-sm font-semibold mb-2">
           {currentProduct} - Stock Level Analysis
         </h4>
-        <Plot
-          data={[
-            {
-              type: 'pie',
-              values: [stockLevels.empty, stockLevels.low, stockLevels.normal, stockLevels.high],
-              labels: ['Empty', 'Low', 'Normal', 'High'],
-              marker: {
-                colors: ['lightgray', 'red', 'green', 'gold'],
-              },
-            },
-          ]}
-          layout={{
-            title: `${currentProduct} - Stock Level Distribution`,
-            height: 350,
-            autosize: true,
-            margin: { t: 40, b: 20, l: 20, r: 20 },
-          }}
-          config={{ responsive: true }}
-          style={{ width: '100%' }}
-        />
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <ReactECharts option={pieOption} style={{ height: 320, width: '100%' }} />
+        </div>
 
         {lowStockLocations.length > 0 && (
-          <div className="mt-4">
+          <div className="mt-6">
             <h4 className="text-sm font-semibold mb-2">
               {currentProduct} - Locations Needing Replenishment
             </h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs border">
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border px-2 py-1 text-left">Location ID</th>
-                    <th className="border px-2 py-1 text-left">Zone</th>
-                    <th className="border px-2 py-1 text-left">Location Type</th>
-                    <th className="border px-2 py-1 text-right">Quantity</th>
+                  <tr className="bg-surface-50">
+                    <th className="px-4 py-2.5 text-left font-medium text-gray-700">
+                      Location ID
+                    </th>
+                    <th className="px-4 py-2.5 text-left font-medium text-gray-700">Zone</th>
+                    <th className="px-4 py-2.5 text-left font-medium text-gray-700">
+                      Location Type
+                    </th>
+                    <th className="px-4 py-2.5 text-right font-medium text-gray-700">Quantity</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lowStockLocations.map((l) => (
-                    <tr key={l.location_id}>
-                      <td className="border px-2 py-1">{l.location_id}</td>
-                      <td className="border px-2 py-1">{l.zone}</td>
-                      <td className="border px-2 py-1">{l.location_type}</td>
-                      <td className="border px-2 py-1 text-right">{l.quantity}</td>
+                    <tr key={l.location_id} className="border-t border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-2.5 font-mono">{l.location_id}</td>
+                      <td className="px-4 py-2.5">{l.zone}</td>
+                      <td className="px-4 py-2.5">{l.location_type}</td>
+                      <td className="px-4 py-2.5 text-right">{l.quantity}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -358,13 +448,11 @@ export default function InventoryReportTab({ data }: Props) {
         )}
       </div>
 
-      {/* Inventory Issues Analysis */}
-      <div>
-        <h3 className="text-base font-semibold mb-3">Inventory Issues Analysis</h3>
+      <div className="rounded-xl border border-gray-200 bg-white shadow-card p-4">
+        <h3 className="text-base font-semibold mb-4">Inventory Issues Analysis</h3>
         <div className="grid grid-cols-2 gap-6">
-          {/* Low stock */}
           <div>
-            <label className="block text-xs font-medium mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Low Stock Threshold: {lowThreshold}
             </label>
             <input
@@ -373,49 +461,28 @@ export default function InventoryReportTab({ data }: Props) {
               max={10}
               value={lowThreshold}
               onChange={(e) => setLowThreshold(Number(e.target.value))}
-              className="w-full mb-2"
+              className="w-full h-2 rounded-lg accent-primary-500 mb-3"
             />
-            <div className="border rounded p-3 text-center mb-3">
-              <div className="text-2xl font-bold">{lowStockAll.length}</div>
-              <div className="text-xs text-gray-500">Low Stock Locations</div>
-              <div className="text-[10px] text-gray-400">
+            <div className="rounded-lg border border-gray-200 p-4 text-center mb-3 shadow-card">
+              <div className="text-2xl font-bold text-gray-900">{lowStockAll.length}</div>
+              <div className="text-sm text-gray-500">Low Stock Locations</div>
+              <div className="text-xs text-gray-400 mt-0.5">
                 {filledData.length > 0
                   ? `${((lowStockAll.length / filledData.length) * 100).toFixed(1)}% of filled`
                   : '0%'}
               </div>
             </div>
             {lowByProduct.length > 0 ? (
-              <Plot
-                data={[
-                  {
-                    type: 'bar',
-                    x: lowByProduct.map((p) => p.product_type),
-                    y: lowByProduct.map((p) => p.count),
-                    marker: {
-                      color: lowByProduct.map((p) => p.count),
-                      colorscale: 'Reds',
-                    },
-                  },
-                ]}
-                layout={{
-                  title: 'Top Products with Low Stock',
-                  xaxis: { tickangle: -45 },
-                  yaxis: { title: 'Low Stock Locations' },
-                  margin: { b: 100, t: 40, l: 40, r: 10 },
-                  height: 300,
-                  autosize: true,
-                }}
-                config={{ responsive: true }}
-                style={{ width: '100%' }}
-              />
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <ReactECharts option={lowBarOption} style={{ height: 280, width: '100%' }} />
+              </div>
             ) : (
-              <p className="text-xs text-gray-500 text-center">No low stock locations found</p>
+              <p className="text-sm text-gray-500 text-center py-8">No low stock locations found</p>
             )}
           </div>
 
-          {/* High stock */}
           <div>
-            <label className="block text-xs font-medium mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               High Stock Threshold: {highThreshold}
             </label>
             <input
@@ -424,91 +491,69 @@ export default function InventoryReportTab({ data }: Props) {
               max={50}
               value={highThreshold}
               onChange={(e) => setHighThreshold(Number(e.target.value))}
-              className="w-full mb-2"
+              className="w-full h-2 rounded-lg accent-primary-500 mb-3"
             />
-            <div className="border rounded p-3 text-center mb-3">
-              <div className="text-2xl font-bold">{highStockAll.length}</div>
-              <div className="text-xs text-gray-500">High Stock Locations</div>
-              <div className="text-[10px] text-gray-400">
+            <div className="rounded-lg border border-gray-200 p-4 text-center mb-3 shadow-card">
+              <div className="text-2xl font-bold text-gray-900">{highStockAll.length}</div>
+              <div className="text-sm text-gray-500">High Stock Locations</div>
+              <div className="text-xs text-gray-400 mt-0.5">
                 {filledData.length > 0
                   ? `${((highStockAll.length / filledData.length) * 100).toFixed(1)}% of filled`
                   : '0%'}
               </div>
             </div>
             {highByProduct.length > 0 ? (
-              <Plot
-                data={[
-                  {
-                    type: 'bar',
-                    x: highByProduct.map((p) => p.product_type),
-                    y: highByProduct.map((p) => p.count),
-                    marker: {
-                      color: highByProduct.map((p) => p.count),
-                      colorscale: 'Greens',
-                    },
-                  },
-                ]}
-                layout={{
-                  title: 'Top Products with High Stock',
-                  xaxis: { tickangle: -45 },
-                  yaxis: { title: 'High Stock Locations' },
-                  margin: { b: 100, t: 40, l: 40, r: 10 },
-                  height: 300,
-                  autosize: true,
-                }}
-                config={{ responsive: true }}
-                style={{ width: '100%' }}
-              />
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <ReactECharts option={highBarOption} style={{ height: 280, width: '100%' }} />
+              </div>
             ) : (
-              <p className="text-xs text-gray-500 text-center">No high stock locations found</p>
+              <p className="text-sm text-gray-500 text-center py-8">No high stock locations found</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Balance Analysis */}
-      <div>
-        <h3 className="text-base font-semibold mb-2">Inventory Balance Analysis</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs border">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-card p-4">
+        <h3 className="text-base font-semibold mb-3">Inventory Balance Analysis</h3>
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-gray-50">
-                <th className="border px-2 py-1 text-left">Product Type</th>
-                <th className="border px-2 py-1 text-right">Avg Qty</th>
-                <th className="border px-2 py-1 text-right">Std Dev</th>
-                <th className="border px-2 py-1 text-right">Min</th>
-                <th className="border px-2 py-1 text-right">Max</th>
-                <th className="border px-2 py-1 text-right">Total</th>
-                <th className="border px-2 py-1 text-right">Locations</th>
-                <th className="border px-2 py-1 text-right">CV %</th>
+              <tr className="bg-surface-50">
+                <th className="px-4 py-2.5 text-left font-medium text-gray-700">Product Type</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Avg Qty</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Std Dev</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Min</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Max</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Total</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">Locations</th>
+                <th className="px-4 py-2.5 text-right font-medium text-gray-700">CV %</th>
               </tr>
             </thead>
             <tbody>
               {balanceData.map((r) => (
-                <tr key={r.product_type}>
-                  <td className="border px-2 py-1">{r.product_type}</td>
-                  <td className="border px-2 py-1 text-right">{r.avg_quantity}</td>
-                  <td className="border px-2 py-1 text-right">{r.std_quantity}</td>
-                  <td className="border px-2 py-1 text-right">{r.min_quantity}</td>
-                  <td className="border px-2 py-1 text-right">{r.max_quantity}</td>
-                  <td className="border px-2 py-1 text-right">{r.total_quantity}</td>
-                  <td className="border px-2 py-1 text-right">{r.location_count}</td>
-                  <td className="border px-2 py-1 text-right">{r.cv}%</td>
+                <tr key={r.product_type} className="border-t border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-2.5">{r.product_type}</td>
+                  <td className="px-4 py-2.5 text-right">{r.avg_quantity}</td>
+                  <td className="px-4 py-2.5 text-right">{r.std_quantity}</td>
+                  <td className="px-4 py-2.5 text-right">{r.min_quantity}</td>
+                  <td className="px-4 py-2.5 text-right">{r.max_quantity}</td>
+                  <td className="px-4 py-2.5 text-right">{r.total_quantity}</td>
+                  <td className="px-4 py-2.5 text-right">{r.location_count}</td>
+                  <td className="px-4 py-2.5 text-right">{r.cv}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1">
+        <p className="text-xs text-gray-400 mt-2">
           CV % = Coefficient of Variation - Higher values indicate less balanced inventory
           distribution
         </p>
       </div>
 
-      {/* Download */}
       <button
         onClick={() => downloadCsv('warehouse_inventory_report.csv', locationsToCsv(data))}
-        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium"
+        className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
       >
         Download Full Inventory Report
       </button>
@@ -518,9 +563,9 @@ export default function InventoryReportTab({ data }: Props) {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border rounded p-3 text-center">
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs text-gray-500">{label}</div>
+    <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-card">
+      <div className="text-2xl font-bold text-gray-900">{value}</div>
+      <div className="text-sm text-gray-500 mt-0.5">{label}</div>
     </div>
   );
 }

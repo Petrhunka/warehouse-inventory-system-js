@@ -90,20 +90,22 @@ export default function App() {
         />
       )}
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="px-6 py-4 border-b bg-white">
-          <h1 className="text-xl font-bold">Warehouse Layout &amp; Inventory System</h1>
+      <main className="flex-1 flex flex-col overflow-hidden bg-surface-50">
+        <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm">
+          <h1 className="text-xl font-bold text-gray-900">
+            Warehouse Layout &amp; Inventory System
+          </h1>
         </header>
 
-        <div className="flex border-b bg-gray-50">
+        <div className="flex border-b border-gray-200 bg-white">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-2.5 text-sm font-medium transition-colors ${
+              className={`px-5 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'border-b-2 border-blue-600 text-blue-600 bg-white'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                  ? 'border-b-2 border-primary-600 text-primary-600 bg-white'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-surface-50'
               }`}
             >
               {tab.label}
@@ -111,7 +113,7 @@ export default function App() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-surface-50">
           {activeTab === 'visualization' && (
             <WarehouseVizTab
               data={filteredData}
@@ -126,7 +128,7 @@ export default function App() {
           {activeTab === 'stocktaking' && <StocktakingTab data={data} />}
         </div>
 
-        <footer className="px-6 py-2 border-t text-xs text-gray-400 text-center bg-white">
+        <footer className="px-6 py-3 border-t border-gray-200 text-xs text-gray-500 text-center bg-white">
           Warehouse Layout &amp; Inventory System &mdash; Built with Next.js
         </footer>
       </main>

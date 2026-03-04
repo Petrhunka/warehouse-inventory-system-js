@@ -34,8 +34,8 @@ export default function WarehouseVizTab({
   const showAnalysis = highlightUnderstock || highlightOverstock;
 
   return (
-    <div>
-      <p className="text-sm text-gray-600 mb-4">
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">
         Interactive visualization of warehouse layout with multiple storage zones,
         color-coded sections, and detailed product location tracking.
       </p>
@@ -57,19 +57,19 @@ export default function WarehouseVizTab({
           understockThreshold={understockThreshold}
         />
       )}
-      <p className="text-xs text-gray-500 mt-1">
+      <p className="text-xs text-gray-500">
         {vizType === '3d'
           ? 'Use mouse to navigate: rotate (drag), zoom (scroll), pan (right-click+drag)'
           : '2D Layout - Hover over locations for details'}
       </p>
 
       {showAnalysis && (
-        <details className="mt-4 border rounded p-3">
-          <summary className="cursor-pointer font-medium text-sm">
+        <details className="rounded-xl border border-gray-200 bg-white shadow-card overflow-hidden">
+          <summary className="cursor-pointer font-medium text-sm px-4 py-3 hover:bg-gray-50">
             Stock Level Analysis
           </summary>
-          <div className="mt-3">
-            <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="px-4 pb-4 pt-1 border-t border-gray-100">
+            <div className="grid grid-cols-3 gap-4 mb-4">
               <MetricCard
                 label="Understock Locations"
                 value={understockCount}
@@ -100,15 +100,15 @@ export default function WarehouseVizTab({
             </div>
 
             <h4 className="text-sm font-semibold mb-2">Stock Levels by Zone</h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs border">
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border px-2 py-1 text-left">Zone</th>
-                    <th className="border px-2 py-1 text-right">Total Items</th>
-                    <th className="border px-2 py-1 text-right">Understock</th>
-                    <th className="border px-2 py-1 text-right">Normal</th>
-                    <th className="border px-2 py-1 text-right">Overstock</th>
+                  <tr className="bg-surface-50">
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">Zone</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700">Total Items</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700">Understock</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700">Normal</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700">Overstock</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -122,12 +122,12 @@ export default function WarehouseVizTab({
                       const ns = items.length - us - os;
                       const total = items.reduce((s, l) => s + l.quantity, 0);
                       return (
-                        <tr key={zone}>
-                          <td className="border px-2 py-1 font-medium">{zone}</td>
-                          <td className="border px-2 py-1 text-right">{total}</td>
-                          <td className="border px-2 py-1 text-right">{us}</td>
-                          <td className="border px-2 py-1 text-right">{ns}</td>
-                          <td className="border px-2 py-1 text-right">{os}</td>
+                        <tr key={zone} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-2 font-medium">{zone}</td>
+                          <td className="px-4 py-2 text-right">{total}</td>
+                          <td className="px-4 py-2 text-right">{us}</td>
+                          <td className="px-4 py-2 text-right">{ns}</td>
+                          <td className="px-4 py-2 text-right">{os}</td>
                         </tr>
                       );
                     })}
@@ -143,10 +143,10 @@ export default function WarehouseVizTab({
 
 function MetricCard({ label, value, sub }: { label: string; value: number; sub: string }) {
   return (
-    <div className="border rounded p-3 text-center">
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>
+    <div className="rounded-lg border border-gray-200 bg-white p-4 text-center shadow-card">
+      <div className="text-2xl font-bold text-gray-900">{value}</div>
+      <div className="text-sm text-gray-500">{label}</div>
+      <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
     </div>
   );
 }

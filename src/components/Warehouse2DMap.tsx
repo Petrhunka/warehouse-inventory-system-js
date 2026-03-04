@@ -6,7 +6,13 @@ import { Location } from '@/types/warehouse';
 import { getColorByStockLevel, rgbString } from '@/lib/visualization';
 import { groupBy } from '@/lib/utils';
 
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
+const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+
+interface ScatterData {
+  value: [number, number];
+  loc: Location;
+  itemStyle: { color: string; opacity?: number };
+}
 
 interface Props {
   data: Location[];
@@ -33,9 +39,9 @@ export default function Warehouse2DMap({
   overstockThreshold,
   understockThreshold,
 }: Props) {
-  const traces = useMemo(() => {
+  const option = useMemo(() => {
     const byZone = groupBy(data, (l) => l.zone);
-    const result: Plotly.Data[] = [];
+    const series: object[] = [];
 
     for (const [zone, rawItems] of Object.entries(byZone)) {
       const items = dedup(rawItems);
@@ -43,38 +49,30 @@ export default function Warehouse2DMap({
       const filled = items.filter((l) => l.quantity > 0);
 
       if (empty.length > 0) {
-        result.push({
-          type: 'scatter' as const,
-          x: empty.map((l) => l.x),
-          y: empty.map((l) => l.y),
-          mode: 'markers' as const,
-          marker: {
-            size: 8,
-            color: empty.map((l) => rgbString(l.color)),
-            symbol: 'square',
-            opacity: 0.5,
-            line: { width: 1, color: 'rgb(50,50,50)' },
-          },
-          text: empty.map(
-            (l) =>
-              `Zone: ${l.zone}<br>Product Type: ${l.product_type}<br>Status: Empty` +
-              (l.depth_info ? `<br>Depth: ${l.depth_info}` : ''),
-          ),
-          hoverinfo: 'text' as const,
+        series.push({
+          type: 'scatter',
           name: `Zone ${zone} - Empty`,
+          data: empty.map((l) => ({
+            value: [l.x, l.y],
+            loc: l,
+            itemStyle: { color: rgbString(l.color), opacity: 0.5 },
+          })) as ScatterData[],
+          symbolSize: 8,
+          symbol: 'square',
+          itemStyle: { borderColor: 'rgb(50,50,50)', borderWidth: 1 },
+          emphasis: { scale: true },
         });
       }
 
       if (filled.length > 0) {
-        result.push({
-          type: 'scatter' as const,
-          x: filled.map((l) => l.x),
-          y: filled.map((l) => l.y),
-          mode: 'markers' as const,
-          marker: {
-            size: 8,
-            color: filled.map((l) =>
-              getColorByStockLevel(
+        series.push({
+          type: 'scatter',
+          name: `Zone ${zone} - ${filled[0].product_type}`,
+          data: filled.map((l) => ({
+            value: [l.x, l.y],
+            loc: l,
+            itemStyle: {
+              color: getColorByStockLevel(
                 l.quantity,
                 highlightOverstock,
                 highlightUnderstock,
@@ -82,84 +80,79 @@ export default function Warehouse2DMap({
                 understockThreshold,
                 l.color,
               ),
-            ),
-            symbol: 'square',
-            line: { width: 1, color: 'rgb(50,50,50)' },
-          },
-          text: filled.map(
-            (l) =>
-              `Zone: ${l.zone}<br>Product Type: ${l.product_type}<br>Quantity: ${l.quantity}` +
-              (l.depth_info ? `<br>Depth: ${l.depth_info}` : '') +
-              (highlightUnderstock && l.quantity > 0 && l.quantity <= understockThreshold
-                ? '<br><b>UNDERSTOCK</b>'
-                : '') +
-              (highlightOverstock && l.quantity >= overstockThreshold
-                ? '<br><b>OVERSTOCK</b>'
-                : ''),
-          ),
-          hoverinfo: 'text' as const,
-          name: `Zone ${zone} - ${filled[0].product_type}`,
+            },
+          })) as ScatterData[],
+          symbolSize: 8,
+          symbol: 'square',
+          itemStyle: { borderColor: 'rgb(50,50,50)', borderWidth: 1 },
+          emphasis: { scale: true },
         });
       }
     }
 
-    // zone labels
-    const zoneCenters = groupBy(data, (l) => l.zone);
-    for (const [zone, items] of Object.entries(zoneCenters)) {
-      if (zone === 'DOCK') continue;
-      const cx = items.reduce((s, l) => s + l.x, 0) / items.length;
-      const cy = items.reduce((s, l) => s + l.y, 0) / items.length;
-      result.push({
-        type: 'scatter' as const,
-        x: [cx],
-        y: [cy],
-        mode: 'text' as const,
-        text: [` ${zone} `],
-        textposition: 'middle center' as const,
-        textfont: { size: 14, color: 'black' },
-        showlegend: false,
-      });
-    }
-
-    // legend markers for highlighting
     if (highlightUnderstock) {
-      result.push({
-        type: 'scatter' as const,
-        x: [null],
-        y: [null],
-        mode: 'markers' as const,
-        marker: { size: 10, color: 'rgb(255, 0, 0)' },
+      series.push({
+        type: 'scatter',
         name: 'Understock',
+        data: [],
+        symbolSize: 10,
+        itemStyle: { color: 'rgb(255, 0, 0)' },
+        symbol: 'square',
       });
     }
     if (highlightOverstock) {
-      result.push({
-        type: 'scatter' as const,
-        x: [null],
-        y: [null],
-        mode: 'markers' as const,
-        marker: { size: 10, color: 'rgb(255, 215, 0)' },
+      series.push({
+        type: 'scatter',
         name: 'Overstock',
+        data: [],
+        symbolSize: 10,
+        itemStyle: { color: 'rgb(255, 215, 0)' },
+        symbol: 'square',
       });
     }
 
-    return result;
+    return {
+      title: { text: 'Warehouse 2D Layout', left: 'center', top: 8 },
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: { data?: ScatterData }) => {
+          const loc = params.data?.loc;
+          if (!loc) return '';
+          const lines = [
+            `Zone: ${loc.zone}`,
+            `Product Type: ${loc.product_type}`,
+            loc.quantity === 0 ? 'Status: Empty' : `Quantity: ${loc.quantity}`,
+          ];
+          if (loc.depth_info) lines.push(`Depth: ${loc.depth_info}`);
+          if (highlightUnderstock && loc.quantity > 0 && loc.quantity <= understockThreshold) {
+            lines.push('<b>UNDERSTOCK</b>');
+          }
+          if (highlightOverstock && loc.quantity >= overstockThreshold) {
+            lines.push('<b>OVERSTOCK</b>');
+          }
+          return lines.join('<br/>');
+        },
+      },
+      xAxis: { type: 'value', name: 'X', splitLine: { show: false } },
+      yAxis: { type: 'value', name: 'Y', splitLine: { show: false } },
+      legend: {
+        orient: 'vertical',
+        left: 8,
+        top: 40,
+        data: series.map((s: { name?: string }) => s.name),
+      },
+      grid: { left: 50, right: 24, bottom: 40, top: 48, containLabel: true },
+      series,
+    };
   }, [data, highlightOverstock, highlightUnderstock, overstockThreshold, understockThreshold]);
 
   return (
-    <Plot
-      data={traces}
-      layout={{
-        title: 'Warehouse 2D Layout',
-        xaxis: { title: 'X' },
-        yaxis: { title: 'Y' },
-        legend: { yanchor: 'top', y: 0.99, xanchor: 'left', x: 0.01 },
-        margin: { l: 40, r: 20, b: 40, t: 40 },
-        height: 600,
-        autosize: true,
-      }}
-      config={{ responsive: true }}
-      style={{ width: '100%', height: '600px' }}
-    />
+    <div className="rounded-xl border border-gray-200 bg-white shadow-card overflow-hidden">
+      <ReactECharts
+        option={option}
+        style={{ height: 600, width: '100%' }}
+        opts={{ renderer: 'canvas' }}
+      />
+    </div>
   );
 }

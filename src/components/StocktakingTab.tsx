@@ -152,40 +152,41 @@ export default function StocktakingTab({ data }: Props) {
       {/* Session */}
       <div className="flex gap-4 items-end">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Stocktaking Date</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Stocktaking Date</label>
           <input
             type="date"
             value={stocktakingDate}
             onChange={(e) => setStocktakingDate(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Worker Name</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Worker Name</label>
           <input
             type="text"
             value={workerName}
             onChange={(e) => setWorkerName(e.target.value)}
             placeholder="Enter name"
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-[280px_1fr] gap-6">
         {/* Filters */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Stocktaking Filters</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-card space-y-4">
+          <h3 className="text-sm font-semibold text-gray-800">Stocktaking Filters</h3>
 
           <div>
             <span className="text-xs font-medium text-gray-700">Zones to Check</span>
-            <div className="max-h-28 overflow-y-auto border border-gray-200 rounded p-1 mt-1 space-y-0.5">
+            <div className="max-h-28 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 mt-1 space-y-1">
               {allZones.map((z) => (
-                <label key={z} className="flex items-center gap-1.5 text-xs">
+                <label key={z} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 -mx-1 px-1 py-0.5 rounded">
                   <input
                     type="checkbox"
                     checked={selectedZones.includes(z)}
                     onChange={() => toggleZone(z)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   {z}
                 </label>
@@ -195,13 +196,14 @@ export default function StocktakingTab({ data }: Props) {
 
           <div>
             <span className="text-xs font-medium text-gray-700">Product Types</span>
-            <div className="max-h-28 overflow-y-auto border border-gray-200 rounded p-1 mt-1 space-y-0.5">
+            <div className="max-h-28 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 mt-1 space-y-1">
               {allProducts.map((p) => (
-                <label key={p} className="flex items-center gap-1.5 text-xs">
+                <label key={p} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 -mx-1 px-1 py-0.5 rounded">
                   <input
                     type="checkbox"
                     checked={selectedProducts.includes(p)}
                     onChange={() => toggleProduct(p)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   {p}
                 </label>
@@ -243,7 +245,7 @@ export default function StocktakingTab({ data }: Props) {
                 max={50}
                 value={overstockThreshold}
                 onChange={(e) => setOverstockThreshold(Number(e.target.value))}
-                className="w-full"
+                className="w-full h-2 rounded-lg accent-primary-500"
               />
             </div>
           )}
@@ -253,7 +255,7 @@ export default function StocktakingTab({ data }: Props) {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as StocktakeSort)}
-              className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
             >
               <option value="zone">Zone</option>
               <option value="quantity_desc">Quantity (High to Low)</option>
@@ -264,14 +266,14 @@ export default function StocktakingTab({ data }: Props) {
         </div>
 
         {/* Stocktaking List */}
-        <div>
-          <h3 className="text-sm font-semibold mb-2">Stocktaking Task</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-card">
+          <h3 className="text-sm font-semibold text-gray-800 mb-2">Stocktaking Task</h3>
 
           {/* Progress */}
-          <div className="mb-3">
-            <div className="h-2 bg-gray-200 rounded overflow-hidden">
+          <div className="mb-4">
+            <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-600 transition-all"
+                className="h-full bg-primary-600 transition-all duration-300 rounded-full"
                 style={{ width: `${progress * 100}%` }}
               />
             </div>
@@ -297,7 +299,7 @@ export default function StocktakingTab({ data }: Props) {
                 return (
                   <div
                     key={loc.location_id}
-                    className="border rounded p-3 flex gap-3 items-start"
+                    className="rounded-lg border border-gray-200 p-4 flex gap-3 items-start hover:border-gray-300 transition-colors"
                   >
                     {/* Info */}
                     <div className="flex-1 min-w-0">
@@ -346,7 +348,7 @@ export default function StocktakingTab({ data }: Props) {
                           {v.notes && <div>Notes: {v.notes}</div>}
                         </div>
                       ) : (
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <input
                             type="number"
                             min={0}
@@ -357,7 +359,7 @@ export default function StocktakingTab({ data }: Props) {
                                 [loc.location_id]: Number(e.target.value),
                               }))
                             }
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
                             placeholder="Actual qty"
                           />
                           <input
@@ -369,7 +371,7 @@ export default function StocktakingTab({ data }: Props) {
                                 [loc.location_id]: e.target.value,
                               }))
                             }
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
                             placeholder="Notes"
                           />
                         </div>
@@ -381,14 +383,14 @@ export default function StocktakingTab({ data }: Props) {
                       {isVerified ? (
                         <button
                           onClick={() => handleEdit(loc.location_id)}
-                          className="px-3 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
+                          className="px-3 py-1.5 text-xs rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium"
                         >
                           Edit
                         </button>
                       ) : (
                         <button
                           onClick={() => handleVerify(loc)}
-                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                          className="px-3 py-1.5 text-xs rounded-lg bg-primary-600 text-white hover:bg-primary-700 font-medium"
                         >
                           Verify
                         </button>
@@ -402,48 +404,48 @@ export default function StocktakingTab({ data }: Props) {
 
           {/* Results */}
           {verifiedRows.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold mb-2">Stocktaking Results</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs border">
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Stocktaking Results</h3>
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50">
-                      <th className="border px-2 py-1 text-left">Location</th>
-                      <th className="border px-2 py-1 text-left">Zone</th>
-                      <th className="border px-2 py-1 text-left">Product</th>
-                      <th className="border px-2 py-1 text-right">System Qty</th>
-                      <th className="border px-2 py-1 text-right">Actual Qty</th>
-                      <th className="border px-2 py-1 text-right">Diff</th>
-                      <th className="border px-2 py-1 text-left">Notes</th>
-                      <th className="border px-2 py-1 text-left">Date</th>
-                      <th className="border px-2 py-1 text-left">By</th>
+                    <tr className="bg-surface-50">
+                      <th className="px-4 py-2 text-left font-medium text-gray-700">Location</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-700">Zone</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-700">Product</th>
+                      <th className="px-4 py-2 text-right font-medium text-gray-700">System Qty</th>
+                      <th className="px-4 py-2 text-right font-medium text-gray-700">Actual Qty</th>
+                      <th className="px-4 py-2 text-right font-medium text-gray-700">Diff</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-700">Notes</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-700">Date</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-700">By</th>
                     </tr>
                   </thead>
                   <tbody>
                     {verifiedRows.map((r) => (
-                      <tr key={r.location_id}>
-                        <td className="border px-2 py-1">{r.location_id}</td>
-                        <td className="border px-2 py-1">{r.zone}</td>
-                        <td className="border px-2 py-1">{r.product_type}</td>
-                        <td className="border px-2 py-1 text-right">{r.system_quantity}</td>
-                        <td className="border px-2 py-1 text-right">{r.actual_quantity}</td>
+                      <tr key={r.location_id} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-2 font-mono">{r.location_id}</td>
+                        <td className="px-4 py-2">{r.zone}</td>
+                        <td className="px-4 py-2">{r.product_type}</td>
+                        <td className="px-4 py-2 text-right">{r.system_quantity}</td>
+                        <td className="px-4 py-2 text-right">{r.actual_quantity}</td>
                         <td
-                          className={`border px-2 py-1 text-right font-medium ${
+                          className={`px-4 py-2 text-right font-medium ${
                             r.difference !== 0 ? 'text-red-600' : 'text-green-600'
                           }`}
                         >
                           {r.difference}
                         </td>
-                        <td className="border px-2 py-1">{r.notes}</td>
-                        <td className="border px-2 py-1">{r.verification_date}</td>
-                        <td className="border px-2 py-1">{r.verified_by}</td>
+                        <td className="px-4 py-2">{r.notes}</td>
+                        <td className="px-4 py-2">{r.verification_date}</td>
+                        <td className="px-4 py-2">{r.verified_by}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex gap-3 mt-3">
+              <div className="flex gap-3 mt-4">
                 <button
                   onClick={() =>
                     downloadCsv(
@@ -451,13 +453,13 @@ export default function StocktakingTab({ data }: Props) {
                       stocktakingToCsv(verifiedRows),
                     )
                   }
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium"
+                  className="rounded-lg px-4 py-2.5 bg-green-600 text-white hover:bg-green-700 text-sm font-medium"
                 >
                   Download Stocktaking Results
                 </button>
                 <button
                   onClick={handleReset}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+                  className="rounded-lg px-4 py-2.5 bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
                 >
                   Reset Stocktaking Session
                 </button>

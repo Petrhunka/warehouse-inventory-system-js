@@ -82,41 +82,46 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="w-72 min-w-[18rem] bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto text-sm flex-shrink-0">
+    <aside className="w-72 min-w-[18rem] bg-surface-50 border-r border-gray-200 p-4 overflow-y-auto text-sm flex-shrink-0 shadow-card">
       <button
         onClick={onRegenerate}
-        className="w-full mb-4 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+        className="w-full mb-4 px-3 py-2.5 rounded-lg bg-primary-600 text-white hover:bg-primary-700 text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
       >
         Regenerate Warehouse Data
       </button>
 
-      <h3 className="font-semibold mb-2">Visualization Type</h3>
+      <h3 className="font-semibold text-gray-800 mb-2">Visualization Type</h3>
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setVizType('3d')}
-          className={`flex-1 px-2 py-1 rounded text-xs font-medium ${
-            vizType === '3d' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+            vizType === '3d'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
           }`}
         >
-          3D Plotly
+          3D View
         </button>
         <button
           onClick={() => setVizType('2d')}
-          className={`flex-1 px-2 py-1 rounded text-xs font-medium ${
-            vizType === '2d' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+            vizType === '2d'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
           }`}
         >
           2D Map
         </button>
       </div>
 
-      <h3 className="font-semibold mb-2">Highlight Options</h3>
+      <h3 className="font-semibold text-gray-800 mb-2">Highlight Options</h3>
       <div className="space-y-2 mb-4">
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             checked={highlightUnderstock}
             onChange={(e) => setHighlightUnderstock(e.target.checked)}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
           Highlight Understock
         </label>
@@ -131,15 +136,16 @@ export default function Sidebar({
               max={10}
               value={understockThreshold}
               onChange={(e) => setUnderstockThreshold(Number(e.target.value))}
-              className="w-full"
+              className="w-full h-2 rounded-lg accent-primary-500"
             />
           </div>
         )}
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             checked={highlightOverstock}
             onChange={(e) => setHighlightOverstock(e.target.checked)}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
           Highlight Overstock
         </label>
@@ -154,12 +160,12 @@ export default function Sidebar({
               max={50}
               value={overstockThreshold}
               onChange={(e) => setOverstockThreshold(Number(e.target.value))}
-              className="w-full"
+              className="w-full h-2 rounded-lg accent-primary-500"
             />
           </div>
         )}
         {(highlightUnderstock || highlightOverstock) && (
-          <div className="text-xs bg-blue-50 p-2 rounded">
+          <div className="text-xs bg-primary-50 p-2.5 rounded-lg">
             {highlightUnderstock && (
               <span className="text-red-600 font-medium">Red = Understock (0 &lt; qty &le; {understockThreshold})</span>
             )}
@@ -171,7 +177,7 @@ export default function Sidebar({
         )}
       </div>
 
-      <h3 className="font-semibold mb-2">Filters</h3>
+      <h3 className="font-semibold text-gray-800 mb-2">Filters</h3>
 
       <div className="mb-3">
         <div className="flex justify-between items-center mb-1">
@@ -180,18 +186,19 @@ export default function Sidebar({
             onClick={() =>
               setSelectedZones(selectedZones.length === allZones.length ? [] : [...allZones])
             }
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium"
           >
             {selectedZones.length === allZones.length ? 'Clear' : 'All'}
           </button>
         </div>
-        <div className="max-h-32 overflow-y-auto border border-gray-200 rounded p-1 space-y-0.5">
+        <div className="max-h-32 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
           {allZones.map((z) => (
-            <label key={z} className="flex items-center gap-1.5 text-xs">
+            <label key={z} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 -mx-1 px-1 py-0.5 rounded">
               <input
                 type="checkbox"
                 checked={selectedZones.includes(z)}
                 onChange={() => toggleZone(z)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               {z}
             </label>
@@ -208,18 +215,19 @@ export default function Sidebar({
                 selectedProducts.length === allProductTypes.length ? [] : [...allProductTypes],
               )
             }
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium"
           >
             {selectedProducts.length === allProductTypes.length ? 'Clear' : 'All'}
           </button>
         </div>
-        <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-1 space-y-0.5">
+        <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
           {allProductTypes.map((p) => (
-            <label key={p} className="flex items-center gap-1.5 text-xs">
+            <label key={p} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 -mx-1 px-1 py-0.5 rounded">
               <input
                 type="checkbox"
                 checked={selectedProducts.includes(p)}
                 onChange={() => toggleProduct(p)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               {p}
             </label>
@@ -238,7 +246,7 @@ export default function Sidebar({
             max={maxStock}
             value={stockRange[0]}
             onChange={(e) => setStockRange([Number(e.target.value), stockRange[1]])}
-            className="w-16 border border-gray-300 rounded px-1 py-0.5 text-xs"
+            className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
           />
           <span className="text-gray-400">&ndash;</span>
           <input
@@ -247,47 +255,47 @@ export default function Sidebar({
             max={maxStock}
             value={stockRange[1]}
             onChange={(e) => setStockRange([stockRange[0], Number(e.target.value)])}
-            className="w-16 border border-gray-300 rounded px-1 py-0.5 text-xs"
+            className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
           />
         </div>
       </div>
 
-      <h3 className="font-semibold mb-2">Statistics</h3>
+      <h3 className="font-semibold text-gray-800 mb-2">Statistics</h3>
       <div className="grid grid-cols-2 gap-2 mb-4">
-        <div className="bg-white rounded border p-2 text-center">
-          <div className="text-lg font-bold">{totalLocations}</div>
+        <div className="rounded-lg border border-gray-200 bg-white p-3 text-center shadow-card">
+          <div className="text-lg font-bold text-gray-900">{totalLocations}</div>
           <div className="text-[10px] text-gray-500">Total Locations</div>
         </div>
-        <div className="bg-white rounded border p-2 text-center">
-          <div className="text-lg font-bold">{filledLocations}</div>
+        <div className="rounded-lg border border-gray-200 bg-white p-3 text-center shadow-card">
+          <div className="text-lg font-bold text-gray-900">{filledLocations}</div>
           <div className="text-[10px] text-gray-500">Filled</div>
         </div>
-        <div className="bg-white rounded border p-2 text-center">
-          <div className="text-lg font-bold">{emptyLocations}</div>
+        <div className="rounded-lg border border-gray-200 bg-white p-3 text-center shadow-card">
+          <div className="text-lg font-bold text-gray-900">{emptyLocations}</div>
           <div className="text-[10px] text-gray-500">Empty</div>
         </div>
-        <div className="bg-white rounded border p-2 text-center">
-          <div className="text-lg font-bold">{totalStock.toLocaleString()}</div>
+        <div className="rounded-lg border border-gray-200 bg-white p-3 text-center shadow-card">
+          <div className="text-lg font-bold text-gray-900">{totalStock.toLocaleString()}</div>
           <div className="text-[10px] text-gray-500">Total Stock</div>
         </div>
       </div>
 
-      <h4 className="text-xs font-semibold mb-1">Zone Statistics</h4>
-      <div className="max-h-48 overflow-y-auto">
+      <h4 className="text-xs font-semibold text-gray-700 mb-1">Zone Statistics</h4>
+      <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-left text-gray-500">
-              <th className="pr-2">Zone</th>
-              <th className="pr-2">Locs</th>
-              <th>Stock</th>
+            <tr className="bg-surface-50 text-left">
+              <th className="px-3 py-2 font-medium text-gray-700">Zone</th>
+              <th className="px-3 py-2 font-medium text-gray-700">Locs</th>
+              <th className="px-3 py-2 font-medium text-gray-700">Stock</th>
             </tr>
           </thead>
           <tbody>
             {zoneStats.map((zs) => (
-              <tr key={zs.zone} className="border-t border-gray-100">
-                <td className="pr-2 font-medium">{zs.zone}</td>
-                <td className="pr-2">{zs.locations}</td>
-                <td>{zs.stock}</td>
+              <tr key={zs.zone} className="border-t border-gray-100 hover:bg-gray-50">
+                <td className="px-3 py-1.5 font-medium">{zs.zone}</td>
+                <td className="px-3 py-1.5">{zs.locations}</td>
+                <td className="px-3 py-1.5">{zs.stock}</td>
               </tr>
             ))}
           </tbody>
