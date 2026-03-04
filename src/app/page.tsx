@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Location } from '@/types/warehouse';
 import { getWarehouseData, regenerateWarehouseData } from '@/lib/warehouse-data';
 import { uniqueValues } from '@/lib/utils';
 import Sidebar from '@/components/Sidebar';
@@ -11,39 +12,51 @@ import StocktakingTab from '@/components/StocktakingTab';
 type Tab = 'visualization' | 'reporting' | 'stocktaking';
 
 export default function Home() {
-  const [data, setData] = useState(() => getWarehouseData());
+  const [data, setData] = useState<Location[] | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('visualization');
 
-  // sidebar state
-  const allZones = useMemo(() => uniqueValues(data, 'zone'), [data]);
-  const allProductTypes = useMemo(() => uniqueValues(data, 'product_type'), [data]);
-  const maxStock = useMemo(() => Math.max(...data.map((l) => l.quantity), 0), [data]);
+  useEffect(() => {
+    setData(getWarehouseData());
+  }, []);
 
-  const [selectedZones, setSelectedZones] = useState<string[]>(() => uniqueValues(data, 'zone'));
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(() =>
-    uniqueValues(data, 'product_type'),
+  const allZones = useMemo(() => (data ? uniqueValues(data, 'zone') : []), [data]);
+  const allProductTypes = useMemo(
+    () => (data ? uniqueValues(data, 'product_type') : []),
+    [data],
   );
-  const [stockRange, setStockRange] = useState<[number, number]>(() => [
-    0,
-    Math.max(...data.map((l) => l.quantity), 0),
-  ]);
+  const maxStock = useMemo(
+    () => (data ? Math.max(...data.map((l) => l.quantity), 0) : 20),
+    [data],
+  );
+
+  const [selectedZones, setSelectedZones] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [stockRange, setStockRange] = useState<[number, number]>([0, 20]);
   const [vizType, setVizType] = useState<'3d' | '2d'>('3d');
   const [highlightUnderstock, setHighlightUnderstock] = useState(false);
   const [highlightOverstock, setHighlightOverstock] = useState(false);
   const [understockThreshold, setUnderstockThreshold] = useState(5);
   const [overstockThreshold, setOverstockThreshold] = useState(15);
 
-  const filteredData = useMemo(
-    () =>
-      data.filter(
-        (l) =>
-          selectedZones.includes(l.zone) &&
-          selectedProducts.includes(l.product_type) &&
-          l.quantity >= stockRange[0] &&
-          l.quantity <= stockRange[1],
-      ),
-    [data, selectedZones, selectedProducts, stockRange],
-  );
+  // Sync filters when data first loads
+  useEffect(() => {
+    if (data) {
+      setSelectedZones(uniqueValues(data, 'zone'));
+      setSelectedProducts(uniqueValues(data, 'product_type'));
+      setStockRange([0, Math.max(...data.map((l) => l.quantity), 0)]);
+    }
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    return data.filter(
+      (l) =>
+        selectedZones.includes(l.zone) &&
+        selectedProducts.includes(l.product_type) &&
+        l.quantity >= stockRange[0] &&
+        l.quantity <= stockRange[1],
+    );
+  }, [data, selectedZones, selectedProducts, stockRange]);
 
   const handleRegenerate = useCallback(() => {
     const newData = regenerateWarehouseData();
@@ -59,6 +72,17 @@ export default function Home() {
     { id: 'reporting', label: 'Inventory Level Reporting' },
     { id: 'stocktaking', label: 'Stocktaking Assistant' },
   ];
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-lg font-medium text-gray-600">Loading warehouse data...</div>
+          <div className="mt-2 text-sm text-gray-400">Generating inventory layout</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen">
@@ -95,7 +119,6 @@ export default function Home() {
           <h1 className="text-xl font-bold">Warehouse Layout &amp; Inventory System</h1>
         </header>
 
-        {/* Tab bar */}
         <div className="flex border-b bg-gray-50">
           {tabs.map((tab) => (
             <button
@@ -112,7 +135,6 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Tab content */}
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'visualization' && (
             <WarehouseVizTab
