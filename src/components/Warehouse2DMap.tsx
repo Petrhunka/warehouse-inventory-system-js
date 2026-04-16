@@ -1,9 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Location } from '@/types/warehouse';
-import { getColorByStockLevel, rgbString } from '@/lib/visualization';
+import { getColorByStockLevel, getStockStatus, rgbString } from '@/lib/visualization';
 import { groupBy } from '@/lib/utils';
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
@@ -26,7 +26,7 @@ function dedup(items: Location[]): Location[] {
   });
 }
 
-export default function Warehouse2DMap({
+function Warehouse2DMap({
   data,
   highlightOverstock,
   highlightUnderstock,
@@ -86,17 +86,21 @@ export default function Warehouse2DMap({
             symbol: 'square',
             line: { width: 1, color: 'rgb(50,50,50)' },
           },
-          text: filled.map(
-            (l) =>
+          text: filled.map((l) => {
+            const status = getStockStatus(
+              l.quantity,
+              highlightUnderstock,
+              highlightOverstock,
+              understockThreshold,
+              overstockThreshold,
+            );
+            return (
               `Zone: ${l.zone}<br>Product Type: ${l.product_type}<br>Quantity: ${l.quantity}` +
               (l.depth_info ? `<br>Depth: ${l.depth_info}` : '') +
-              (highlightUnderstock && l.quantity > 0 && l.quantity <= understockThreshold
-                ? '<br><b>UNDERSTOCK</b>'
-                : '') +
-              (highlightOverstock && l.quantity >= overstockThreshold
-                ? '<br><b>OVERSTOCK</b>'
-                : ''),
-          ),
+              (status === 'understock' ? '<br><b>UNDERSTOCK</b>' : '') +
+              (status === 'overstock' ? '<br><b>OVERSTOCK</b>' : '')
+            );
+          }),
           hoverinfo: 'text' as const,
           name: `Zone ${zone} - ${filled[0].product_type}`,
         });
@@ -104,8 +108,7 @@ export default function Warehouse2DMap({
     }
 
     // zone labels
-    const zoneCenters = groupBy(data, (l) => l.zone);
-    for (const [zone, items] of Object.entries(zoneCenters)) {
+    for (const [zone, items] of Object.entries(byZone)) {
       if (zone === 'DOCK') continue;
       const cx = items.reduce((s, l) => s + l.x, 0) / items.length;
       const cy = items.reduce((s, l) => s + l.y, 0) / items.length;
@@ -121,7 +124,6 @@ export default function Warehouse2DMap({
       });
     }
 
-    // legend markers for highlighting
     if (highlightUnderstock) {
       result.push({
         type: 'scatter' as const,
@@ -163,3 +165,5 @@ export default function Warehouse2DMap({
     />
   );
 }
+
+export default memo(Warehouse2DMap);

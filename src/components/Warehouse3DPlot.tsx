@@ -1,9 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Location } from '@/types/warehouse';
-import { getColorByStockLevel, rgbString } from '@/lib/visualization';
+import { getColorByStockLevel, getStockStatus, rgbString } from '@/lib/visualization';
 import { groupBy } from '@/lib/utils';
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
@@ -16,7 +16,7 @@ interface Props {
   understockThreshold: number;
 }
 
-export default function Warehouse3DPlot({
+function Warehouse3DPlot({
   data,
   highlightOverstock,
   highlightUnderstock,
@@ -78,17 +78,21 @@ export default function Warehouse3DPlot({
             symbol: 'square',
             line: { width: 1, color: 'rgb(50,50,50)' },
           },
-          text: filled.map(
-            (l) =>
+          text: filled.map((l) => {
+            const status = getStockStatus(
+              l.quantity,
+              highlightUnderstock,
+              highlightOverstock,
+              understockThreshold,
+              overstockThreshold,
+            );
+            return (
               `ID: ${l.location_id}<br>Zone: ${l.zone}<br>Product Type: ${l.product_type}<br>Product: ${l.product_id}<br>Quantity: ${l.quantity}` +
               (l.depth_info ? `<br>Depth: ${l.depth_info}` : '') +
-              (highlightUnderstock && l.quantity > 0 && l.quantity <= understockThreshold
-                ? '<br><b>UNDERSTOCK</b>'
-                : '') +
-              (highlightOverstock && l.quantity >= overstockThreshold
-                ? '<br><b>OVERSTOCK</b>'
-                : ''),
-          ),
+              (status === 'understock' ? '<br><b>UNDERSTOCK</b>' : '') +
+              (status === 'overstock' ? '<br><b>OVERSTOCK</b>' : '')
+            );
+          }),
           hoverinfo: 'text' as const,
           name: `Zone ${zone} - ${filled[0].product_type}`,
         });
@@ -96,8 +100,7 @@ export default function Warehouse3DPlot({
     }
 
     // zone labels
-    const zoneCenters = groupBy(data, (l) => l.zone);
-    for (const [zone, items] of Object.entries(zoneCenters)) {
+    for (const [zone, items] of Object.entries(byZone)) {
       if (zone === 'DOCK') continue;
       const cx = items.reduce((s, l) => s + l.x, 0) / items.length;
       const cy = items.reduce((s, l) => s + l.y, 0) / items.length;
@@ -140,3 +143,5 @@ export default function Warehouse3DPlot({
     />
   );
 }
+
+export default memo(Warehouse3DPlot);
