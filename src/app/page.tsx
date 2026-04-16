@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { getWarehouseData, regenerateWarehouseData } from '@/lib/warehouse-data';
 import Sidebar from '@/components/Sidebar';
 import WarehouseVizTab from '@/components/WarehouseVizTab';
@@ -40,8 +41,14 @@ export default function Home() {
         {activeTab === 'visualization' && <Sidebar onRegenerate={handleRegenerate} />}
 
         <main className="flex-1 flex flex-col overflow-hidden">
-          <header className="px-6 py-4 border-b bg-white">
+          <header className="px-6 py-4 border-b bg-white flex items-center justify-between gap-4">
             <h1 className="text-xl font-bold">Warehouse Layout &amp; Inventory System</h1>
+            <Link
+              href="/worker"
+              className="text-sm text-blue-600 hover:underline whitespace-nowrap"
+            >
+              Worker app &rarr;
+            </Link>
           </header>
 
           <div role="tablist" aria-label="Views" className="flex border-b bg-gray-50">
