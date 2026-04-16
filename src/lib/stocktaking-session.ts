@@ -42,7 +42,13 @@ export function emptySession(): LiveStocktakingSession {
   return { scope: null, records: {}, workers: {}, last_updated: 0 };
 }
 
-export function loadSession(): LiveStocktakingSession {
+// Cached snapshot so useSyncExternalStore gets a stable reference between
+// reads. Invalidated when we observe a mutation (save, broadcast, storage
+// event). Without this, React treats every render as a store change and
+// loops to the max-update-depth error.
+let cachedSnapshot: LiveStocktakingSession | null = null;
+
+function readFromStorage(): LiveStocktakingSession {
   if (typeof window === 'undefined') return emptySession();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -59,9 +65,18 @@ export function loadSession(): LiveStocktakingSession {
   }
 }
 
+export function loadSession(): LiveStocktakingSession {
+  if (typeof window === 'undefined') return emptySession();
+  if (cachedSnapshot === null) {
+    cachedSnapshot = readFromStorage();
+  }
+  return cachedSnapshot;
+}
+
 export function saveSession(session: LiveStocktakingSession): void {
   if (typeof window === 'undefined') return;
-  const next = { ...session, last_updated: Date.now() };
+  const next: LiveStocktakingSession = { ...session, last_updated: Date.now() };
+  cachedSnapshot = next;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
@@ -81,7 +96,10 @@ export function subscribeToSession(
 ): () => void {
   if (typeof window === 'undefined') return () => {};
 
-  const handler = () => callback(loadSession());
+  const handler = () => {
+    cachedSnapshot = null;
+    callback(loadSession());
+  };
 
   const onStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEY) handler();
