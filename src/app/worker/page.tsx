@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Location,
   StocktakeFocus,
@@ -10,15 +10,18 @@ import {
 } from '@/types/warehouse';
 import { getWarehouseData } from '@/lib/warehouse-data';
 import { downloadCsv, stocktakingToCsv } from '@/lib/utils';
+import {
+  LiveStocktakingSession,
+  StocktakingScope,
+  emptySession,
+  loadSession,
+  saveSession,
+} from '@/lib/stocktaking-session';
 
 export default function WorkerStocktakePage() {
   const [data, setData] = useState<Location[]>([]);
   const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setData(getWarehouseData());
-    setHydrated(true);
-  }, []);
+  const sessionRef = useRef<LiveStocktakingSession>(emptySession());
 
   const [stocktakingDate, setStocktakingDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
@@ -27,6 +30,23 @@ export default function WorkerStocktakePage() {
   const [verified, setVerified] = useState<Record<string, VerifiedLocation>>({});
   const [pendingQty, setPendingQty] = useState<Record<string, number>>({});
   const [pendingNotes, setPendingNotes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setData(getWarehouseData());
+    const existing = loadSession();
+    sessionRef.current = existing;
+    const hydratedVerified: Record<string, VerifiedLocation> = {};
+    for (const [locId, rec] of Object.entries(existing.records)) {
+      hydratedVerified[locId] = {
+        actual_quantity: rec.actual_quantity,
+        notes: rec.notes,
+        verification_date: rec.date,
+        verified_by: rec.worker,
+      };
+    }
+    setVerified(hydratedVerified);
+    setHydrated(true);
+  }, []);
 
   const allZones = useMemo(
     () => Array.from(new Set(data.map((l) => l.zone))).sort(),
@@ -92,18 +112,79 @@ export default function WorkerStocktakePage() {
   const totalToCheck = filteredData.length;
   const progress = totalToCheck > 0 ? completedCount / totalToCheck : 0;
 
+  // Sync scope (filter criteria + denominators) to the session so the dashboard
+  // knows the total to verify and per-zone totals.
+  useEffect(() => {
+    if (!hydrated) return;
+    const perZoneTotals: Record<string, number> = {};
+    for (const loc of filteredData) {
+      perZoneTotals[loc.zone] = (perZoneTotals[loc.zone] ?? 0) + 1;
+    }
+    const scope: StocktakingScope = {
+      zones: selectedZones,
+      product_types: selectedProducts,
+      focus,
+      overstock_threshold: overstockThreshold,
+      total_in_scope: filteredData.length,
+      per_zone_totals: perZoneTotals,
+    };
+    const prev = sessionRef.current;
+    const nextSession: LiveStocktakingSession = {
+      ...prev,
+      scope,
+      last_updated: Date.now(),
+    };
+    sessionRef.current = nextSession;
+    saveSession(nextSession);
+  }, [hydrated, filteredData, selectedZones, selectedProducts, focus, overstockThreshold]);
+
   const handleVerify = (loc: Location) => {
     const qty = pendingQty[loc.location_id] ?? loc.quantity;
     const notes = pendingNotes[loc.location_id] ?? '';
+    const worker = workerName.trim();
+    const now = Date.now();
+
     setVerified((prev) => ({
       ...prev,
       [loc.location_id]: {
         actual_quantity: qty,
         notes,
         verification_date: stocktakingDate,
-        verified_by: workerName,
+        verified_by: worker,
       },
     }));
+
+    const prevSession = sessionRef.current;
+    const existingWorker = prevSession.workers[worker];
+    const nextSession: LiveStocktakingSession = {
+      ...prevSession,
+      records: {
+        ...prevSession.records,
+        [loc.location_id]: {
+          location_id: loc.location_id,
+          zone: loc.zone,
+          product_type: loc.product_type,
+          location_type: loc.location_type,
+          system_quantity: loc.quantity,
+          actual_quantity: qty,
+          difference: qty - loc.quantity,
+          notes,
+          worker,
+          verified_at: now,
+          date: stocktakingDate,
+        },
+      },
+      workers: {
+        ...prevSession.workers,
+        [worker]: {
+          last_active: now,
+          verification_count: (existingWorker?.verification_count ?? 0) + 1,
+        },
+      },
+      last_updated: now,
+    };
+    sessionRef.current = nextSession;
+    saveSession(nextSession);
   };
 
   const handleEdit = (locId: string) => {
@@ -112,6 +193,16 @@ export default function WorkerStocktakePage() {
       delete next[locId];
       return next;
     });
+    const prev = sessionRef.current;
+    const nextRecords = { ...prev.records };
+    delete nextRecords[locId];
+    const nextSession: LiveStocktakingSession = {
+      ...prev,
+      records: nextRecords,
+      last_updated: Date.now(),
+    };
+    sessionRef.current = nextSession;
+    saveSession(nextSession);
   };
 
   const handleReset = () => {
@@ -119,6 +210,14 @@ export default function WorkerStocktakePage() {
     setVerified({});
     setPendingQty({});
     setPendingNotes({});
+    const nextSession: LiveStocktakingSession = {
+      ...sessionRef.current,
+      records: {},
+      workers: {},
+      last_updated: Date.now(),
+    };
+    sessionRef.current = nextSession;
+    saveSession(nextSession);
   };
 
   const verifiedRows = useMemo(
@@ -162,6 +261,12 @@ export default function WorkerStocktakePage() {
               &larr; Admin
             </Link>
             <h1 className="text-base md:text-lg font-semibold truncate">Stocktaking</h1>
+            <Link
+              href="/dashboard"
+              className="hidden sm:inline text-xs text-blue-600 hover:underline whitespace-nowrap"
+            >
+              Dashboard &rarr;
+            </Link>
           </div>
           <button
             type="button"
