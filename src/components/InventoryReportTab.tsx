@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Location } from '@/types/warehouse';
 import { groupBy, sum, mean, std, minVal, maxVal, downloadCsv, locationsToCsv } from '@/lib/utils';
+import MetricCard from './MetricCard';
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
 
@@ -11,7 +12,7 @@ interface Props {
   data: Location[];
 }
 
-export default function InventoryReportTab({ data }: Props) {
+function InventoryReportTab({ data }: Props) {
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [lowThreshold, setLowThreshold] = useState(5);
   const [highThreshold, setHighThreshold] = useState(15);
@@ -67,7 +68,10 @@ export default function InventoryReportTab({ data }: Props) {
   );
 
   // selected product analysis
-  const productData = data.filter((l) => l.product_type === currentProduct);
+  const productData = useMemo(
+    () => data.filter((l) => l.product_type === currentProduct),
+    [data, currentProduct],
+  );
   const prodTotal = productData.reduce((s, l) => s + l.quantity, 0);
   const prodFilled = productData.filter((l) => l.quantity > 0).length;
   const prodAvg = prodFilled > 0 ? prodTotal / prodFilled : 0;
@@ -516,11 +520,4 @@ export default function InventoryReportTab({ data }: Props) {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border rounded p-3 text-center">
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs text-gray-500">{label}</div>
-    </div>
-  );
-}
+export default memo(InventoryReportTab);

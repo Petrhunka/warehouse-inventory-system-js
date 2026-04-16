@@ -1,4 +1,4 @@
-import { Location } from '@/types/warehouse';
+import { Location, ZoneStat } from '@/types/warehouse';
 
 export function groupBy<K extends string>(
   items: Location[],
@@ -67,6 +67,25 @@ export function uniqueValues(items: Location[], field: keyof Location): string[]
   return Array.from(set).sort();
 }
 
+export function computeZoneStats(items: Location[]): ZoneStat[] {
+  return Object.entries(groupBy(items, (l) => l.zone))
+    .map(([zone, locs]) => ({
+      zone,
+      locations: locs.length,
+      stock: locs.reduce((s, l) => s + l.quantity, 0),
+    }))
+    .sort((a, b) => a.zone.localeCompare(b.zone));
+}
+
+export function escapeCsvField(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
 export function downloadCsv(filename: string, csvContent: string): void {
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -87,10 +106,7 @@ export function locationsToCsv(locations: Location[]): string {
     'product_id', 'quantity', 'product_type', 'x', 'y', 'z',
   ];
   const rows = locations.map((loc) =>
-    headers.map((h) => {
-      const val = loc[h as keyof Location];
-      return val == null ? '' : String(val);
-    }).join(','),
+    headers.map((h) => escapeCsvField(loc[h as keyof Location])).join(','),
   );
   return [headers.join(','), ...rows].join('\n');
 }
@@ -116,11 +132,7 @@ export function stocktakingToCsv(
     'notes', 'verification_date', 'verified_by',
   ];
   const csvRows = rows.map((r) =>
-    headers.map((h) => {
-      const val = r[h as keyof typeof r];
-      const s = val == null ? '' : String(val);
-      return s.includes(',') ? `"${s}"` : s;
-    }).join(','),
+    headers.map((h) => escapeCsvField(r[h as keyof typeof r])).join(','),
   );
   return [headers.join(','), ...csvRows].join('\n');
 }

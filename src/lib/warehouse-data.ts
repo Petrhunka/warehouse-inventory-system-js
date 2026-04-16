@@ -160,15 +160,50 @@ export function generateRealisticWarehouse(): Location[] {
 
 const STORAGE_KEY = 'warehouse_data';
 
+function isLocation(value: unknown): value is Location {
+  if (value === null || typeof value !== 'object') return false;
+  const l = value as Record<string, unknown>;
+  return (
+    typeof l.location_id === 'string' &&
+    typeof l.zone === 'string' &&
+    typeof l.row === 'number' &&
+    typeof l.column === 'number' &&
+    typeof l.depth === 'number' &&
+    typeof l.location_type === 'string' &&
+    (l.product_id === null || typeof l.product_id === 'string') &&
+    typeof l.quantity === 'number' &&
+    typeof l.product_type === 'string' &&
+    typeof l.x === 'number' &&
+    typeof l.y === 'number' &&
+    typeof l.z === 'number' &&
+    Array.isArray(l.color) &&
+    l.color.length === 3 &&
+    l.color.every((c) => typeof c === 'number') &&
+    typeof l.depth_info === 'string'
+  );
+}
+
+function isLocationArray(value: unknown): value is Location[] {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  // Spot-check: first, middle, and last entries cover schema drift in most cases.
+  const indices = [0, Math.floor(value.length / 2), value.length - 1];
+  return indices.every((i) => isLocation(value[i]));
+}
+
 export function getWarehouseData(): Location[] {
   if (typeof window !== 'undefined') {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored) as Location[];
+        const parsed: unknown = JSON.parse(stored);
+        if (isLocationArray(parsed)) {
+          return parsed;
+        }
+        console.warn('warehouse_data failed schema validation; regenerating.');
+        localStorage.removeItem(STORAGE_KEY);
       }
-    } catch {
-      // fall through to generate
+    } catch (err) {
+      console.warn('Failed to read warehouse_data from localStorage:', err);
     }
   }
   const data = generateRealisticWarehouse();
@@ -180,8 +215,8 @@ export function persistWarehouseData(data: Location[]): void {
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // localStorage might be full; silently ignore
+    } catch (err) {
+      console.warn('Failed to persist warehouse_data (quota?):', err);
     }
   }
 }
